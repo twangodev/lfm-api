@@ -2,6 +2,7 @@ package lfm_api
 
 import "time"
 
+// Scrobble represents a scrobble on Last.FM.
 type Scrobble struct {
 	Active        bool      // Whether the user is actively scrobbling
 	Name          string    // The name of the track

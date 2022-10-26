@@ -15,6 +15,7 @@ const LastFmUrl = "https://www.last.fm/"
 
 var lastFm = httpClient.New(LastFmUrl)
 
+// GetActiveScrobble returns the active scrobble for the given user.
 func GetActiveScrobble(username string) Scrobble {
 	request, err := lastFm.Get(fmt.Sprintf("user/%v/partial/recenttracks?ajax=1", username))
 	if err != nil { // Error would request formed
