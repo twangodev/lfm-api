@@ -5,7 +5,6 @@ import (
 	httpClient "github.com/bozd4g/go-http-client"
 	"golang.org/x/net/html"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -16,27 +15,27 @@ const LastFmUrl = "https://www.last.fm/"
 var lastFm = httpClient.New(LastFmUrl)
 
 // GetActiveScrobble returns the active scrobble for the given user.
-func GetActiveScrobble(username string) Scrobble {
+func GetActiveScrobble(username string) (Scrobble, error) {
 	request, err := lastFm.Get(fmt.Sprintf("user/%v/partial/recenttracks?ajax=1", username))
 	if err != nil { // Error would request formed
-		return EmptyScrobble
+		return EmptyScrobble, err
 	}
 
 	response, err := lastFm.Do(request)
 	if err != nil { // Request could not be done
-		return EmptyScrobble
+		return EmptyScrobble, err
 	}
 
 	responseStruct := response.Get()
 	body := string(responseStruct.Body)
 	code := responseStruct.StatusCode
 	if code != 200 { // Request unsuccessful
-		return EmptyScrobble
+		return EmptyScrobble, err
 	}
 
 	// No active scrobble detected
 	if !strings.Contains(body, "Scrobbling now") {
-		return EmptyScrobble
+		return EmptyScrobble, err
 	}
 
 	ioReader := strings.NewReader(strings.ReplaceAll(body, "\n", ""))
@@ -98,7 +97,7 @@ func GetActiveScrobble(username string) Scrobble {
 				dataTimeString := searchHTMLAttribute(attributes, "data-timestamp")
 				dataTimeInt64, err := strconv.ParseInt(dataTimeString, 10, 64)
 				if err != nil {
-					log.Println(err)
+					return EmptyScrobble, err
 				}
 				dataTime = time.Unix(dataTimeInt64, 0)
 				index := 0
@@ -222,6 +221,6 @@ func GetActiveScrobble(username string) Scrobble {
 		DataLink:      dataLink,
 		DataLinkTitle: dataLinkTitle,
 		CoverArtUrl:   coverArtUrl,
-	}
+	}, nil
 
 }
