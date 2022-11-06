@@ -1,4 +1,4 @@
-module github.com/lastfm-discordrpc/lfm-api
+module github.com/twangodev/lfm-api
 
 go 1.18
 
