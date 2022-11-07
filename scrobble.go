@@ -1,6 +1,9 @@
 package lfm_api
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Scrobble represents a scrobble on Last.FM.
 type Scrobble struct {
@@ -14,4 +17,8 @@ type Scrobble struct {
 	DataLink      string    // A link to the track (YouTube, etc.)
 	DataLinkTitle string    // A description for the dataLink
 	CoverArtUrl   string    // A URL to the album cover art
+}
+
+func (s Scrobble) String() string {
+	return fmt.Sprintf(`Scrobble{%s by %s on %s, Loved: %v}`, s.Name, s.Artist, s.Album, s.Loved)
 }
