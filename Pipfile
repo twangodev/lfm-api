@@ -5,6 +5,10 @@ name = "pypi"
 
 [packages]
 mkdocs-material = "*"
+mkdocs-git-committers-plugin-2 = "*"
+mkdocs-git-revision-date-localized-plugin = "*"
+mkdocs-rss-plugin = "*"
+mkdocs-open-in-new-tab = "*"
 
 [dev-packages]
 
