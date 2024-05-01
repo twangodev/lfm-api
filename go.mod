@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/bozd4g/go-http-client v1.0.2
-	golang.org/x/exp v0.0.0-20221026153819-32f3d567a233
+	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
 	golang.org/x/net v0.24.0
 )
 
