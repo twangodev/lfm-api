@@ -47,6 +47,11 @@ To run `lfm-cli`, simply execute the binary file you downloaded or built.
 
 The active scrobble will be displayed on your Discord profile.
 
+!!! warning "Known Issues"
+    - If you are using the Discord web client, the rich presence will not be displayed. This is a limitation of the Discord web client and not `lfm-cli`.
+    - If you are using the Discord desktop client, ensure that you have the "Display Spotify as your status" option disabled in the Discord settings. This option can interfere with the rich presence display.
+    - If Discord is closed or not running, the rich presence will not be displayed. Ensure that Discord is running in the background for the rich presence to work. Otherwise, restart `lfm-cli` when Discord is running.
+
 ### Available Flags
 
 - `--help`, `-h`: Shows a list of commands or help for one command
