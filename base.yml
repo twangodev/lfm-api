@@ -7,11 +7,10 @@ repo_url: https://github.com/twangodev/lfm-api
 repo_name: twangodev/lfm-api
 edit_uri: edit/main/docs/
 
-custom_dir: overrides
-
 theme:
   name: material
   logo: assets/logo.png
+  custom_dir: overrides
   favicon: assets/logo.png
   icon:
     annotation: material/arrow-right-circle
