@@ -48,21 +48,24 @@ type Scrobble struct {
 }
 ```
 
-!!! tip
-    The `GetActiveScrobble` function will return `EmptyScrobble` if the user is not actively scrobbling.
-
-    `EmptyScrobble` is a `Scrobble` struct with all fields set to their zero values, and `Active` set to `false`.
-
-    ```go
-    var EmptyScrobble = Scrobble{
-        Active: false,
-    }
-    ```
+> [!TIP]
+> The `GetActiveScrobble` function will return `EmptyScrobble` if the user is not actively scrobbling.
+>
+> `EmptyScrobble` is a `Scrobble` struct with all fields set to their zero values, and `Active` set to `false`.
+> 
+> ```go
+> var EmptyScrobble = Scrobble{
+> Active: false,
+> }
+> ```
 
 > [!IMPORTANT]
 > The underlying implementation used by `lfm-api` utilizes an unofficial endpoint of the Last.fm API, which allows the package to obtain information without an API key. As such, the API may change or be removed at any time. The package is provided as-is, with no guarantees of support or functionality.
+> 
 > When building applications that rely on the Last.fm API, it is recommended to use the official API and obtain an API key. However, for simple applications or personal use, `lfm-api` provides a quick and easy way to retrieve scrobble information.
+> 
 > It is recommended to use this package on the client-side only, as it may not scale well for server-side applications, and could potentially be rate-limited by Last.fm.
+> 
 > For more information about `lfm-api`, you can view the source code on [GitHub](https://github.com/twangodev/lfm-api).
 
 ## Roadmap
