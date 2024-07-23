@@ -3,6 +3,7 @@ package lfm_api
 import (
 	"fmt"
 	httpClient "github.com/bozd4g/go-http-client"
+	"golang.org/x/net/context"
 	"golang.org/x/net/html"
 	"io"
 	"strconv"
@@ -13,22 +14,17 @@ import (
 const LastFmUrl = "https://www.last.fm/"
 
 var lastFm = httpClient.New(LastFmUrl)
+var ctx = context.Background()
 
 // GetActiveScrobble returns the active scrobble for the given user.
 func GetActiveScrobble(username string) (Scrobble, error) {
-	request, err := lastFm.Get(fmt.Sprintf("user/%v/partial/recenttracks?ajax=1", username))
+	request, err := lastFm.Get(ctx, fmt.Sprintf("user/%v/partial/recenttracks?ajax=1", username))
 	if err != nil { // Error would request formed
 		return EmptyScrobble, err
 	}
 
-	response, err := lastFm.Do(request)
-	if err != nil { // Request could not be done
-		return EmptyScrobble, err
-	}
-
-	responseStruct := response.Get()
-	body := string(responseStruct.Body)
-	code := responseStruct.StatusCode
+	body := string(request.Body())
+	code := request.Status()
 	if code != 200 { // Request unsuccessful
 		return EmptyScrobble, err
 	}
