@@ -1,4 +1,4 @@
-name: Publish Go Module
+name: Publish Go Module on Release
 
 on:
   release:
@@ -9,35 +9,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v3
         with:
-          go-version: '1.18' # Use the Go version you need
+          go-version: '1.18'
 
-      - name: Ensure go.mod and go.sum are up to date
+      - name: List and publish Go module
         run: |
-          go mod tidy
-          git diff --exit-code
+          module_name=$(go list -m)
+          module_version=$(git describe --tags)
+          GOPROXY=proxy.golang.org go list -m $module_name@$module_version
 
-      - name: Push tag to trigger Go module proxy update
+      - name: Verify module publication
         run: |
-          git fetch --tags
-          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
-          git push origin $latest_tag
-
-      - name: Verify module proxy
-        run: |
-          retries=10
-          count=0
-          until go list -m github.com/twangodev/lfm-api@latest || [ $count -eq $retries ]; do
-            echo "Retrying in 30 seconds..."
-            sleep 30
-            count=$((count + 1))
+          module_name=$(go list -m)
+          module_version=$(git describe --tags)
+          attempts=0
+          success=0
+          while [ $attempts -lt 10 ]; do
+            if GOPROXY=proxy.golang.org go list -m $module_name@$module_version; then
+              echo "Module $module_name@$module_version has been published successfully."
+              success=1
+              break
+            else
+              echo "Verification attempt $((attempts + 1)) failed. Retrying in 30 seconds..."
+              sleep 30
+            fi
+            attempts=$((attempts + 1))
           done
-          if [ $count -eq $retries ]; then
-            echo "Failed to verify module proxy after $retries attempts."
+          if [ $success -eq 0 ]; then
+            echo "Failed to verify module publication after 10 attempts."
             exit 1
           fi
