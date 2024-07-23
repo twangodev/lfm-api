@@ -1,0 +1,43 @@
+name: Publish Go Module
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.18' # Use the Go version you need
+
+      - name: Ensure go.mod and go.sum are up to date
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Push tag to trigger Go module proxy update
+        run: |
+          git fetch --tags
+          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+          git push origin $latest_tag
+
+      - name: Verify module proxy
+        run: |
+          retries=10
+          count=0
+          until go list -m github.com/twangodev/lfm-api@latest || [ $count -eq $retries ]; do
+            echo "Retrying in 30 seconds..."
+            sleep 30
+            count=$((count + 1))
+          done
+          if [ $count -eq $retries ]; then
+            echo "Failed to verify module proxy after $retries attempts."
+            exit 1
+          fi
