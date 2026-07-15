@@ -26,7 +26,7 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 	body := string(request.Body())
 	code := request.Status()
 	if code != 200 { // Request unsuccessful
-		return EmptyScrobble, err
+		return EmptyScrobble, fmt.Errorf("last.fm returned status %d", code)
 	}
 
 	// No active scrobble detected
