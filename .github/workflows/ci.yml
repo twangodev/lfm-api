@@ -1,4 +1,4 @@
-name: Go
+name: CI
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing release tag to verify on the Go proxy (for example v1.1.2)
-        required: true
+        description: Optional existing release tag to verify; leave empty for normal CI
+        required: false
         type: string
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
       always() && !cancelled() &&
       needs.test.result == 'success' &&
       (needs.release-please.outputs.release_created == 'true' ||
-       github.event_name == 'workflow_dispatch')
+       (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -107,3 +107,65 @@ jobs:
           done
           echo "::error::Go proxy could not fetch ${module_name}@${RELEASE_TAG}"
           exit 1
+
+  docs-build:
+    name: Build documentation
+    if: github.event_name != 'pull_request' && inputs.release_tag == ''
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      MKDOCS_GIT_COMMITTERS_APIKEY: ${{ secrets.MKDOCS_GIT_COMMITTERS_APIKEY }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3"
+          cache: pipenv
+      - name: Install pipenv
+        run: python3 -m pip install --upgrade pip pipenv
+      - name: Install Dependencies
+        run: pipenv sync
+      - name: Restore Build Cache
+        uses: actions/cache/restore@v4
+        with:
+          key: mkdocs-material-${{ hashfiles('.cache/**') }}
+          path: .cache
+          restore-keys: |
+            mkdocs-material-
+      - name: Build Documentation
+        run: pipenv run mkdocs build
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: site
+      - name: Save Build Cache
+        uses: actions/cache/save@v4
+        with:
+          key: mkdocs-material-${{ hashfiles('.cache/**') }}
+          path: .cache
+
+  docs-deploy:
+    name: Deploy documentation
+    needs: docs-build
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

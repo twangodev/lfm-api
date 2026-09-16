@@ -99,8 +99,15 @@ PRs created with that token do not trigger PR workflows automatically; tests run
 on `main` before release creation. Ordinary pushes and pull requests run tests
 too, using both Go 1.20 and the current stable Go release.
 
-To retry the Go proxy availability check, run the **Go** workflow manually with
-the existing release tag (for example `v1.1.2`).
+To retry the Go proxy availability check, run the **CI** workflow manually with
+the existing release tag (for example `v1.1.2`). Leave the tag empty to run normal
+CI and rebuild documentation. Tag verification runs do not deploy documentation.
+
+All automation lives in `.github/workflows/ci.yml`: Go tests, Release Please,
+module availability checks, and documentation build/deployment. Documentation
+builds on pushes and normal manual runs, and deploys to GitHub Pages from `main`.
+The Pages deployment uses its existing OIDC permissions; releases use
+`GITHUB_TOKEN`.
 
 ## Roadmap
 
