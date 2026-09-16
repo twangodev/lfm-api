@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing release tag to retry publishing (for example v1.1.2)
+        description: Existing release tag to verify on the Go proxy (for example v1.1.2)
         required: true
         type: string
 
@@ -30,22 +30,8 @@ jobs:
       - run: go test -race -timeout 2m ./...
       - run: go vet ./...
 
-  goreleaser-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: goreleaser/goreleaser-action@v7
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: check
-
   release-please:
-    needs: [test, goreleaser-check]
+    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
@@ -65,23 +51,22 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
-    needs: [test, goreleaser-check, release-please]
-    # GITHUB_TOKEN-created releases do not trigger another workflow. Publish
+  verify-module:
+    needs: [test, release-please]
+    # GITHUB_TOKEN-created releases do not trigger another workflow. Verify
     # within this run, with workflow_dispatch available to retry an existing tag.
     if: >-
       always() && !cancelled() &&
       needs.test.result == 'success' &&
-      needs.goreleaser-check.result == 'success' &&
       (needs.release-please.outputs.release_created == 'true' ||
        github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: publish-${{ needs.release-please.outputs.tag_name || inputs.release_tag }}
+      group: verify-module-${{ needs.release-please.outputs.tag_name || inputs.release_tag }}
       cancel-in-progress: false
     permissions:
-      contents: write
+      contents: read
     env:
       RELEASE_TAG: ${{ needs.release-please.outputs.tag_name || inputs.release_tag }}
     steps:
@@ -103,15 +88,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-
-      - name: Publish source archive and checksums
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Go module availability
         env:
