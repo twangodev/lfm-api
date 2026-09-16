@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	httpClient "github.com/bozd4g/go-http-client"
 )
 
 // Last.fm's Varnish layer intermittently serves HTTP 600 "Temporarily Unavailable"
@@ -17,7 +15,7 @@ func TestGetActiveScrobbleNon200ReturnsError(t *testing.T) {
 	defer server.Close()
 
 	original := lastFm
-	lastFm = httpClient.New(server.URL + "/")
+	lastFm = newLastFMClient(server.URL + "/")
 	defer func() { lastFm = original }()
 
 	scrobble, err := GetActiveScrobble("test")

@@ -68,6 +68,21 @@ type Scrobble struct {
 > 
 > For more information about `lfm-api`, you can view the source code on [GitHub](https://github.com/twangodev/lfm-api).
 
+## Fetching and tests
+
+The client automatically completes the supported Fastly SHA-256 proof-of-work
+challenge and keeps verification cookies in memory between calls. Cookies are
+renewed when challenged again. Unsupported challenges, unexpected HTML, and
+failed requests return errors; callers should retain their previous state and
+retry later. Requests have timeouts, response size limits, and bounded challenge
+retries. No browser or API key is required for the supported challenge.
+
+Run offline tests with `go test -race ./...`. To also check the live endpoint:
+
+```sh
+LFM_LIVE_TEST_USER=your_username go test -run '^TestGetActiveScrobble$' -count=1 -v
+```
+
 ## Roadmap
 
 The following features are planned for future releases of `lfm-api`, if the unofficial endpoint remains available, and there is interest in the features

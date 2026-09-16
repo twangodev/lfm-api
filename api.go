@@ -2,32 +2,29 @@ package lfm_api
 
 import (
 	"fmt"
-	httpClient "github.com/bozd4g/go-http-client"
-	"golang.org/x/net/context"
-	"golang.org/x/net/html"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 const LastFmUrl = "https://www.last.fm/"
 
-var lastFm = httpClient.New(LastFmUrl)
-var ctx = context.Background()
+var lastFm = newLastFMClient(LastFmUrl)
 
 // GetActiveScrobble returns the active scrobble for the given user.
 func GetActiveScrobble(username string) (Scrobble, error) {
-	request, err := lastFm.Get(ctx, fmt.Sprintf("user/%v/partial/recenttracks?ajax=1", username))
-	if err != nil { // Error would request formed
+	body, err := lastFm.recentTracks(username)
+	if err != nil {
 		return EmptyScrobble, err
 	}
+	return parseActiveScrobble(body)
+}
 
-	body := string(request.Body())
-	code := request.Status()
-	if code != 200 { // Request unsuccessful
-		return EmptyScrobble, fmt.Errorf("last.fm returned status %d", code)
-	}
+func parseActiveScrobble(body string) (Scrobble, error) {
+	var err error
 
 	// No active scrobble detected
 	if !strings.Contains(body, "Scrobbling now") {
@@ -57,6 +54,7 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 			if err == io.EOF {
 				break
 			}
+			return EmptyScrobble, fmt.Errorf("parse last.fm track: %w", err)
 		}
 
 		if tokenType == html.StartTagToken {
@@ -66,6 +64,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 				tokenizer.Next() // Table row
 				for {            // Each header cell
 					tokenType = tokenizer.Next()
+					if tokenType == html.ErrorToken {
+						return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+					}
 					if tokenType == html.StartTagToken && "th" == tokenizer.Token().Data { // Each header
 						tokenizer.Next()
 						key := tokenizer.Token().Data
@@ -82,6 +83,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 				// Get Table row representing the latest scrobble
 				for {
 					tokenType = tokenizer.Next()
+					if tokenType == html.ErrorToken {
+						return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+					}
 					token = tokenizer.Token()
 					if tokenType == html.StartTagToken && "tr" == token.Data {
 						break
@@ -107,12 +111,21 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 					}
 
 					tokenType = tokenizerCopy.Next()
+					if tokenType == html.ErrorToken {
+						return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+					}
 					token = tokenizerCopy.Token()
 					if tokenType == html.StartTagToken && "td" == token.Data {
+						if index >= len(keys) {
+							return EmptyScrobble, fmt.Errorf("unexpected last.fm track columns")
+						}
 						currentKey := keys[index]
 						if currentKey == "Play" {
 							for {
 								tokenType = tokenizerCopy.Next()
+								if tokenType == html.ErrorToken {
+									return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+								}
 								token = tokenizerCopy.Token()
 								if tokenType == html.StartTagToken && "a" == token.Data {
 									attributes = token.Attr
@@ -130,6 +143,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 						} else if currentKey == "Album" {
 							for {
 								tokenType = tokenizerCopy.Next()
+								if tokenType == html.ErrorToken {
+									return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+								}
 								token = tokenizerCopy.Token()
 								if tokenType == html.SelfClosingTagToken && "img" == token.Data {
 									attributes = token.Attr
@@ -147,6 +163,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 						} else if currentKey == "Loved" {
 							for {
 								tokenType = tokenizerCopy.Next()
+								if tokenType == html.ErrorToken {
+									return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+								}
 								token = tokenizerCopy.Token()
 								if tokenType == html.StartTagToken && "div" == token.Data {
 									attributes = token.Attr
@@ -167,6 +186,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 						} else if currentKey == "Track name" {
 							for {
 								tokenType = tokenizerCopy.Next()
+								if tokenType == html.ErrorToken {
+									return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+								}
 								token = tokenizerCopy.Token()
 								if tokenType == html.StartTagToken && "a" == token.Data {
 									// Get text token, which is after the start tag token
@@ -184,6 +206,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 						} else if currentKey == "Artist name" {
 							for {
 								tokenType = tokenizerCopy.Next()
+								if tokenType == html.ErrorToken {
+									return EmptyScrobble, fmt.Errorf("incomplete last.fm track markup")
+								}
 								token = tokenizerCopy.Token()
 								if tokenType == html.StartTagToken && "a" == token.Data {
 									// Get text token, which is after the start tag token
@@ -206,6 +231,9 @@ func GetActiveScrobble(username string) (Scrobble, error) {
 		}
 	}
 
+	if name == "" || artist == "" || dataTime.IsZero() {
+		return EmptyScrobble, fmt.Errorf("incomplete last.fm active track")
+	}
 	return Scrobble{
 		Active:        true,
 		Name:          name,
