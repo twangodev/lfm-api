@@ -86,25 +86,21 @@ LFM_LIVE_TEST_USER=your_username go test -run '^TestGetActiveScrobble$' -count=1
 ## Releases
 
 Conventional Commits on `main` update a Release Please PR containing the next
-version and changelog. History starts after `v1.1.1`; earlier notes remain in
-[GitHub Releases](https://github.com/twangodev/lfm-api/releases). Merging that PR
-creates the version tag and GitHub release.
-The same workflow then runs GoReleaser to attach a source archive and checksums,
-and verifies that the tagged module is available from `proxy.golang.org`.
+version and changelog. Merging that PR creates the version tag and GitHub release.
+Go consumers install the tagged module directly; the same workflow verifies its
+availability from `proxy.golang.org`.
 
-The pipeline uses the repository's built-in `GITHUB_TOKEN`. GitHub Actions must
-be allowed to create pull requests. PRs created with that token do not trigger
-PR workflows automatically; tests and GoReleaser configuration checks run on
-`main` before release creation. Ordinary pushes and pull requests run those
-checks too, using both Go 1.20 and the current stable Go release for tests.
+[CHANGELOG.md](CHANGELOG.md) includes the original published notes for `v1.0.0`
+through `v1.1.1`. Release Please maintains subsequent entries automatically.
 
-To retry a failed publication, run the **Go** workflow manually with the existing
-release tag (for example `v1.1.2`). To check packaging locally without publishing:
+The pipeline uses the repository's built-in `GITHUB_TOKEN`; no additional secrets
+or OIDC setup are needed. GitHub Actions must be allowed to create pull requests.
+PRs created with that token do not trigger PR workflows automatically; tests run
+on `main` before release creation. Ordinary pushes and pull requests run tests
+too, using both Go 1.20 and the current stable Go release.
 
-```sh
-goreleaser check
-goreleaser release --snapshot --clean
-```
+To retry the Go proxy availability check, run the **Go** workflow manually with
+the existing release tag (for example `v1.1.2`).
 
 ## Roadmap
 
