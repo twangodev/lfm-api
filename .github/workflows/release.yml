@@ -1,46 +1,133 @@
-name: Publish Go Module on Release
+name: Go
 
 on:
-  release:
-    types: [published]
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to retry publishing (for example v1.1.2)
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        go: ['1.20.x', stable]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v3
+      - uses: actions/checkout@v7
         with:
-          go-version: '1.18'
+          ref: ${{ inputs.release_tag || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go test -race -timeout 2m ./...
+      - run: go vet ./...
 
-      - name: List and publish Go module
+  goreleaser-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: check
+
+  release-please:
+    needs: [test, goreleaser-check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-please-main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: [test, goreleaser-check, release-please]
+    # GITHUB_TOKEN-created releases do not trigger another workflow. Publish
+    # within this run, with workflow_dispatch available to retry an existing tag.
+    if: >-
+      always() && !cancelled() &&
+      needs.test.result == 'success' &&
+      needs.goreleaser-check.result == 'success' &&
+      (needs.release-please.outputs.release_created == 'true' ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: publish-${{ needs.release-please.outputs.tag_name || inputs.release_tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.release-please.outputs.tag_name || inputs.release_tag }}
+    steps:
+      - name: Validate existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --json tagName --jq .tagName
+
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Publish source archive and checksums
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Go module availability
+        env:
+          GOPROXY: https://proxy.golang.org
         run: |
           module_name=$(go list -m)
-          module_version=$(git describe --tags)
-          GOPROXY=proxy.golang.org go list -m $module_name@$module_version
-
-      - name: Verify module publication
-        run: |
-          module_name=$(go list -m)
-          module_version=$(git describe --tags)
-          attempts=0
-          success=0
-          while [ $attempts -lt 10 ]; do
-            if GOPROXY=proxy.golang.org go list -m $module_name@$module_version; then
-              echo "Module $module_name@$module_version has been published successfully."
-              success=1
-              break
-            else
-              echo "Verification attempt $((attempts + 1)) failed. Retrying in 30 seconds..."
-              sleep 30
+          # Download outside the module so this checks the published tag.
+          cd "$(mktemp -d)"
+          for attempt in {1..10}; do
+            if go mod download -json "${module_name}@${RELEASE_TAG}"; then
+              echo "${module_name}@${RELEASE_TAG} is available from the Go proxy."
+              exit 0
             fi
-            attempts=$((attempts + 1))
+            if (( attempt < 10 )); then
+              sleep 15
+            fi
           done
-          if [ $success -eq 0 ]; then
-            echo "Failed to verify module publication after 10 attempts."
-            exit 1
-          fi
+          echo "::error::Go proxy could not fetch ${module_name}@${RELEASE_TAG}"
+          exit 1

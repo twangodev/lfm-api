@@ -1,0 +1,25 @@
+version: 2
+
+project_name: lfm-api
+
+# Go modules are consumed from version tags; this library has no executable.
+builds:
+  - skip: true
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  prefix_template: "{{ .ProjectName }}_{{ .Version }}/"
+
+checksum:
+  name_template: checksums.txt
+
+# Release Please owns the changelog and GitHub release notes.
+changelog:
+  disable: true
+
+release:
+  mode: keep-existing
+  github:
+    owner: twangodev
+    name: lfm-api

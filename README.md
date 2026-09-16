@@ -83,6 +83,29 @@ Run offline tests with `go test -race ./...`. To also check the live endpoint:
 LFM_LIVE_TEST_USER=your_username go test -run '^TestGetActiveScrobble$' -count=1 -v
 ```
 
+## Releases
+
+Conventional Commits on `main` update a Release Please PR containing the next
+version and changelog. History starts after `v1.1.1`; earlier notes remain in
+[GitHub Releases](https://github.com/twangodev/lfm-api/releases). Merging that PR
+creates the version tag and GitHub release.
+The same workflow then runs GoReleaser to attach a source archive and checksums,
+and verifies that the tagged module is available from `proxy.golang.org`.
+
+The pipeline uses the repository's built-in `GITHUB_TOKEN`. GitHub Actions must
+be allowed to create pull requests. PRs created with that token do not trigger
+PR workflows automatically; tests and GoReleaser configuration checks run on
+`main` before release creation. Ordinary pushes and pull requests run those
+checks too, using both Go 1.20 and the current stable Go release for tests.
+
+To retry a failed publication, run the **Go** workflow manually with the existing
+release tag (for example `v1.1.2`). To check packaging locally without publishing:
+
+```sh
+goreleaser check
+goreleaser release --snapshot --clean
+```
+
 ## Roadmap
 
 The following features are planned for future releases of `lfm-api`, if the unofficial endpoint remains available, and there is interest in the features
