@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/twangodev/lfm-api/compare/v1.1.2...v1.1.3) (2026-09-29)
+
+
+### Bug Fixes
+
+* reject invalid recent-track responses ([17c571b](https://github.com/twangodev/lfm-api/commit/17c571b187b9a1d973c15c946c72b235ceca1273))
+
 ## [1.1.2](https://github.com/twangodev/lfm-api/compare/v1.1.1...v1.1.2) (2026-09-16)
 
 
