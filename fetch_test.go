@@ -249,3 +249,21 @@ func TestRequestCancellationAndRedirect(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestRecentTracksRejectsProfile(t *testing.T) {
+	for _, redirect := range []bool{false, true} {
+		t.Run(fmt.Sprint(redirect), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if redirect && strings.Contains(r.URL.Path, "/partial/") {
+					http.Redirect(w, r, "/user/test", http.StatusFound)
+					return
+				}
+				fmt.Fprint(w, `<html><head><title>Music Profile</title></head><body><table class="chartlist"><tbody><tr><td>Top track</td></tr></tbody></table></body></html>`)
+			}))
+			defer server.Close()
+			if _, err := newLastFMClient(server.URL + "/").recentTracks("test"); err == nil {
+				t.Fatal("profile must not be classified as idle recent tracks")
+			}
+		})
+	}
+}

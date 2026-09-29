@@ -40,6 +40,9 @@ func newLastFMClient(base string) *lastFMClient {
 			if len(via) >= 5 || req.URL.Scheme != origin.Scheme || req.URL.Host != origin.Host {
 				return fmt.Errorf("last.fm returned an unexpected redirect")
 			}
+			if len(via) > 0 && strings.Contains(via[0].URL.Path, "/partial/recenttracks") && req.URL.Path != via[0].URL.Path {
+				return fmt.Errorf("last.fm recent-tracks request redirected to %s", req.URL.Path)
+			}
 			return nil
 		},
 	}}
@@ -279,9 +282,14 @@ func validateRecentTracks(body []byte) error {
 	if err != nil {
 		return fmt.Errorf("parse last.fm response: %w", err)
 	}
-	var table, tbody bool
+	var table, tbody, fullPage bool
 	var walk func(*html.Node, bool)
 	walk = func(n *html.Node, inTable bool) {
+		// html.Parse inserts html/head/body nodes even for fragments. A title,
+		// however, identifies a full page rather than the requested partial.
+		if n.Type == html.ElementNode && n.Data == "title" && n.Parent != nil && n.Parent.Data == "head" {
+			fullPage = true
+		}
 		if n.Type == html.ElementNode && n.Data == "table" && hasClass(n, "chartlist") {
 			table = true
 			inTable = true
@@ -294,7 +302,7 @@ func validateRecentTracks(body []byte) error {
 		}
 	}
 	walk(doc, false)
-	if !table || !tbody {
+	if fullPage || !table || !tbody {
 		return fmt.Errorf("unexpected last.fm recent-tracks response")
 	}
 	return nil
